@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="color-scheme" content="light dark" />
+<title>Architecture review — ua-brain-template</title>
+<style>html,body{margin:0;padding:0}</style>
+</head>
+<body>
+<style>
+  :root {
+    --bg:#f4f6f8; --surface:#ffffff; --surface-2:#eef2f6;
+    --ink:#14181f; --muted:#586173; --faint:#8a93a3;
+    --line:#dde3ea; --line-strong:#c3ccd6;
+    --accent:#33489c; --accent-soft:#e9edf8;
+    --emerald:#047857; --emerald-soft:#d9f2e6;
+    --amber:#b45309; --amber-soft:#fbeccb;
+    --red:#c62828; --red-soft:#fbe4e4;
+    --deep-a:#0f172a; --deep-b:#243149; --deep-ink:#f3f5f9; --deep-border:transparent;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0c1017; --surface:#141a23; --surface-2:#1b222d;
+      --ink:#e7ebf1; --muted:#9aa4b4; --faint:#6b7686;
+      --line:#242c38; --line-strong:#37434f;
+      --accent:#93a6ff; --accent-soft:#1b2340;
+      --emerald:#34d399; --emerald-soft:#0f2a22;
+      --amber:#fbbf24; --amber-soft:#332810;
+      --red:#f28b82; --red-soft:#37201f;
+      --deep-a:#05080f; --deep-b:#17223a; --deep-ink:#eef2f8; --deep-border:#37434f;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#f4f6f8; --surface:#ffffff; --surface-2:#eef2f6;
+    --ink:#14181f; --muted:#586173; --faint:#8a93a3;
+    --line:#dde3ea; --line-strong:#c3ccd6;
+    --accent:#33489c; --accent-soft:#e9edf8;
+    --emerald:#047857; --emerald-soft:#d9f2e6;
+    --amber:#b45309; --amber-soft:#fbeccb;
+    --red:#c62828; --red-soft:#fbe4e4;
+    --deep-a:#0f172a; --deep-b:#243149; --deep-ink:#f3f5f9; --deep-border:transparent;
+  }
+  :root[data-theme="dark"] {
+    --bg:#0c1017; --surface:#141a23; --surface-2:#1b222d;
+    --ink:#e7ebf1; --muted:#9aa4b4; --faint:#6b7686;
+    --line:#242c38; --line-strong:#37434f;
+    --accent:#93a6ff; --accent-soft:#1b2340;
+    --emerald:#34d399; --emerald-soft:#0f2a22;
+    --amber:#fbbf24; --amber-soft:#332810;
+    --red:#f28b82; --red-soft:#37201f;
+    --deep-a:#05080f; --deep-b:#17223a; --deep-ink:#eef2f8; --deep-border:#37434f;
+  }
+
+  * { box-sizing: border-box; }
+  .page {
+    background: var(--bg); color: var(--ink);
+    font-family: var(--sans); line-height: 1.62;
+    min-height: 100vh; padding: clamp(1.5rem, 4vw, 3.5rem) 1.25rem 4rem;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 63rem; margin: 0 auto; }
+  .prose { max-width: 68ch; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+  .mono { font-family: var(--mono); font-size: 0.86em; }
+  .slabel { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.11em; text-transform: uppercase; color: var(--faint); }
+
+  /* ---------- header ---------- */
+  header { border-bottom: 1px solid var(--line); padding-bottom: 1.75rem; margin-bottom: 2.5rem; }
+  .eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.9rem, 4.4vw, 2.7rem); line-height: 1.08; letter-spacing: -0.01em; margin: 0.7rem 0 0; text-wrap: balance; }
+  h1 .repo { font-family: var(--mono); font-size: 0.5em; color: var(--muted); font-weight: 400; letter-spacing: -0.01em; display: inline-block; vertical-align: middle; }
+  .thesis { color: var(--muted); font-size: 1.05rem; margin: 1rem 0 0; max-width: 60ch; }
+  .thesis b { color: var(--ink); font-weight: 600; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; margin-top: 1.1rem; font-size: 0.8rem; color: var(--faint); font-family: var(--mono); }
+
+  /* ---------- legend (drawing key) ---------- */
+  .legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1.5rem; margin-top: 1.5rem; padding: 0.85rem 1rem; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+  .legend .li { display: flex; align-items: center; gap: 0.55rem; font-size: 0.78rem; color: var(--muted); }
+  .g-mod { width: 1.4rem; height: 1rem; border: 1px solid var(--line-strong); background: var(--surface); }
+  .g-shallow { width: 1.4rem; height: 1rem; border: 1px solid var(--line-strong); background: var(--surface-2); }
+  .g-seam { width: 1.6rem; border-top: 2px dashed var(--faint); }
+  .g-leak { color: var(--red); font-weight: 700; }
+  .g-deep { width: 1.4rem; height: 1rem; background: linear-gradient(135deg, var(--deep-a), var(--deep-b)); border: 1px solid var(--deep-a); }
+
+  /* ---------- candidate index ---------- */
+  .index { margin: 2.5rem 0 3rem; }
+  .index h2 { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); font-weight: 500; margin: 0 0 0.9rem; }
+  .idx-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .idx-list li { border-bottom: 1px solid var(--line); }
+  .idx-list a { display: grid; grid-template-columns: 2.2rem 1fr auto; align-items: center; gap: 0.9rem; padding: 0.7rem 0.4rem; color: var(--ink); }
+  .idx-list a:hover { background: var(--surface); text-decoration: none; }
+  .idx-num { font-family: var(--mono); font-size: 0.8rem; color: var(--accent); }
+  .idx-title { font-size: 0.96rem; }
+  .idx-title .num-note { color: var(--faint); font-size: 0.82rem; }
+
+  /* ---------- badges + tags ---------- */
+  .badge { display: inline-block; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.03em; padding: 0.15rem 0.5rem; border-radius: 4px; white-space: nowrap; }
+  .b-strong { background: var(--emerald-soft); color: var(--emerald); }
+  .b-worth { background: var(--amber-soft); color: var(--amber); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 0.66rem; padding: 0.15rem 0.5rem; border-radius: 4px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+
+  /* ---------- cards ---------- */
+  .card { padding: 2.4rem 0; border-top: 1px solid var(--line); scroll-margin-top: 1.5rem; }
+  .card:first-of-type { border-top: none; }
+  .card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.7rem 0.9rem; }
+  .ctag { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); border: 1px solid var(--line-strong); border-radius: 4px; padding: 0.1rem 0.4rem; }
+  .card-head h3 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.3rem, 2.6vw, 1.7rem); line-height: 1.12; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+  .card-head h3 .mono { font-size: 0.82em; }
+  .files { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); margin: 0.9rem 0 0; word-break: break-word; }
+
+  .dgm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1.5rem 0; }
+  @media (max-width: 720px) { .dgm-grid { grid-template-columns: 1fr; } }
+
+  /* schematic drawing panel with inset drafting frame */
+  .dgm { position: relative; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); padding: 1.1rem; overflow-x: auto; }
+  .dgm::after { content: ""; position: absolute; inset: 6px; border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
+  .dcap { position: relative; z-index: 1; margin-bottom: 0.9rem; }
+  .dbody { position: relative; z-index: 1; min-height: 210px; display: flex; }
+  .dnote { position: relative; z-index: 1; margin-top: 0.9rem; }
+
+  .mod { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 4px; padding: 0.55rem 0.65rem; font-family: var(--mono); font-size: 0.74rem; color: var(--ink); text-align: center; }
+  .mod.deep { background: linear-gradient(135deg, var(--deep-a), var(--deep-b)); color: var(--deep-ink); border: 1px solid var(--deep-a); box-shadow: 0 1px 0 var(--deep-border) inset; }
+  .mod.thick { border-width: 2px; border-color: var(--ink); }
+  .arrow { color: var(--faint); font-weight: 700; }
+  .arrow.leak { color: var(--red); }
+
+  .wins { list-style: none; margin: 1.3rem 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0.35rem 1.4rem; }
+  @media (max-width: 560px) { .wins { grid-template-columns: 1fr; } }
+  .wins li { position: relative; padding-left: 1.1rem; font-size: 0.9rem; color: var(--ink); }
+  .wins li::before { content: "+"; position: absolute; left: 0; color: var(--emerald); font-family: var(--mono); font-weight: 700; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem 2rem; margin-top: 1.3rem; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  .cols p { margin: 0; font-size: 0.92rem; }
+  .cols .slabel { display: block; margin-bottom: 0.2rem; }
+
+  .callout { margin-top: 1.3rem; padding: 0.75rem 0.9rem; border-radius: 5px; font-size: 0.86rem; border-left: 3px solid; }
+  .callout .slabel { color: inherit; opacity: 0.85; margin-right: 0.4rem; }
+  .callout.warn { background: var(--amber-soft); border-color: var(--amber); color: var(--amber); }
+  .callout.warn b, .callout.warn .mono { color: var(--ink); }
+  .callout.info { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .callout.info .mono, .callout.info b { color: var(--ink); }
+
+  .dtest { margin-top: 1.2rem; font-size: 0.9rem; padding: 0.7rem 0.9rem; background: var(--surface); border: 1px solid var(--line); border-radius: 5px; }
+  .dtest .slabel { display: block; margin-bottom: 0.25rem; }
+
+  /* ---------- specific diagram bits ---------- */
+  .fan-list { display: flex; flex-direction: column; gap: 0.4rem; flex: 1; }
+  .fan-row { display: flex; align-items: center; gap: 0.5rem; font-family: var(--mono); font-size: 0.72rem; padding: 0.4rem 0.55rem; border-radius: 4px; }
+  .fan-row.leak { border: 1px solid var(--red); background: var(--red-soft); }
+  .fan-row.gen { border: 1px dashed var(--line-strong); background: var(--surface-2); color: var(--muted); }
+  .fan-wrap { display: flex; align-items: center; gap: 0.7rem; width: 100%; }
+
+  .seamwrap { display: flex; align-items: stretch; width: 100%; position: relative; gap: 0; }
+  .seamwrap .side { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; border: 1px solid var(--line-strong); border-radius: 4px; padding: 0.8rem; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+  .seamwrap .side.canon.thick { border-width: 2px; border-color: var(--ink); color: var(--ink); }
+  .seam-div { width: 0; margin: 0 1.7rem; border-left: 2px dashed var(--faint); position: relative; display: flex; align-items: center; justify-content: center; }
+  .seam-div.armed { width: 0.7rem; border: none; background: linear-gradient(135deg, var(--deep-a), var(--deep-b)); border-radius: 3px; }
+  .gate-chip { position: absolute; white-space: nowrap; font-family: var(--mono); font-size: 0.6rem; padding: 0.5rem 0.2rem; border-radius: 3px; writing-mode: vertical-rl; }
+  .gate-chip.off { background: var(--surface-2); color: var(--faint); border: 1px solid var(--line-strong); }
+  .gate-chip.on { color: var(--deep-ink); }
+  .leak-strip { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; color: var(--red); font-weight: 700; letter-spacing: 0.3em; pointer-events: none; z-index: 2; }
+
+  .clone-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45rem; width: 100%; align-content: center; }
+  .minibox { border: 1px solid var(--line-strong); border-radius: 3px; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.18rem; }
+  .minibox .bar { height: 3px; background: var(--line-strong); border-radius: 2px; opacity: 0.7; }
+  .minibox .bar.uniq { background: var(--accent); opacity: 1; }
+  .runner-after { display: flex; flex-direction: column; gap: 0.9rem; width: 100%; justify-content: center; }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip { font-family: var(--mono); font-size: 0.66rem; border: 1px solid var(--accent); color: var(--accent); background: var(--accent-soft); border-radius: 4px; padding: 0.12rem 0.45rem; }
+
+  .stack { display: flex; flex-direction: column; gap: 0.45rem; width: 100%; justify-content: center; }
+  .band { border-left: 4px solid; border-radius: 3px; padding: 0.55rem 0.7rem; font-family: var(--mono); font-size: 0.72rem; }
+  .band.b-accent { border-color: var(--accent); background: var(--accent-soft); }
+  .band.b-amber { border-color: var(--amber); background: var(--amber-soft); }
+  .band.b-red { border-color: var(--red); background: var(--red-soft); }
+  .band .k { color: var(--ink); font-weight: 600; }
+  .homeless { align-self: flex-start; margin-top: 0.4rem; font-family: var(--mono); font-size: 0.68rem; border: 1px dashed var(--line-strong); background: var(--surface); border-radius: 3px; padding: 0.25rem 0.5rem; color: var(--muted); }
+  .wall { border: 2px solid; border-radius: 4px; padding: 0.7rem 0.75rem; font-family: var(--mono); font-size: 0.72rem; }
+  .wall.w-accent { border-color: var(--accent); }
+  .wall.w-amber { border-color: var(--amber); }
+  .wall.w-red { border-color: var(--red); }
+  .wall b { color: var(--ink); }
+  .wall .dim { color: var(--faint); }
+
+  .bars { display: flex; align-items: flex-end; justify-content: center; gap: 2.2rem; width: 100%; }
+  .barcol { text-align: center; }
+  .bar-v { width: 3.4rem; border-radius: 3px 3px 0 0; }
+  .bar-v.source { background: linear-gradient(180deg, var(--deep-b), var(--deep-a)); }
+  .bar-v.policy-dup { background: var(--red); }
+  .bar-v.policy-gen { background: var(--surface-2); border: 1px dashed var(--line-strong); }
+  .barcol .slabel { margin-top: 0.5rem; }
+
+  .c7-before { display: flex; align-items: center; gap: 0.9rem; width: 100%; }
+  .c7-inputs { display: flex; flex-direction: column; gap: 0.35rem; flex: 1; }
+  .c7-node { flex-shrink: 0; width: 6.5rem; height: 6.5rem; border-radius: 50%; border: 2px solid var(--line-strong); display: flex; align-items: center; justify-content: center; text-align: center; font-family: var(--mono); font-size: 0.7rem; color: var(--ink); background: var(--surface); padding: 0.5rem; }
+  .c7-after { display: flex; align-items: center; justify-content: center; gap: 0.9rem; width: 100%; }
+
+  /* ---------- top recommendation ---------- */
+  .toprec { margin-top: 3rem; border-radius: 10px; padding: clamp(1.6rem, 3.5vw, 2.6rem); background: linear-gradient(135deg, var(--deep-a), var(--deep-b)); color: var(--deep-ink); }
+  .toprec .slabel { color: #9fb0d6; }
+  .toprec h2 { font-family: var(--serif); font-weight: 600; font-size: clamp(1.4rem, 3vw, 1.9rem); margin: 0.6rem 0 0.9rem; line-height: 1.15; text-wrap: balance; }
+  .toprec h2 a { color: #fff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.4); text-underline-offset: 4px; }
+  .toprec p { color: #cdd6e8; font-size: 0.95rem; max-width: 70ch; margin: 0 0 0.7rem; }
+  .toprec .quick { color: #9fb0d6; font-size: 0.85rem; }
+  .toprec .quick a { color: #dbe3f4; }
+
+  footer { margin-top: 2.5rem; padding-top: 1.4rem; border-top: 1px solid var(--line); font-family: var(--mono); font-size: 0.72rem; color: var(--faint); }
+  footer a { color: var(--muted); }
+
+  /* reveal (progressive, off for reduced-motion / no-js) */
+  .js-anim .card, .js-anim .toprec { opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; }
+  .js-anim .card.in, .js-anim .toprec.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .js-anim .card, .js-anim .toprec { opacity: 1; transform: none; transition: none; }
+  }
+</style>
+
+<div class="page">
+  <div class="wrap">
+
+    <!-- ================= HEADER ================= -->
+    <header>
+      <div class="eyebrow">Architecture review · deep / shallow-module lens</div>
+      <h1>The brain template, as a set of schematics <span class="repo">universalagents-ai/ua-brain-template</span></h1>
+      <p class="thesis">One shape recurs across the whole brain: <b>derived state hand-authored across shallow interfaces</b>, and <b>N near-identical clones where one deep module belongs</b>. Seven deepenings turn shallow modules into deep ones — for testability and navigability.</p>
+      <div class="meta-row">
+        <span>2026-07-08</span>
+        <span>7 candidates · 6 strong · 1 worth exploring</span>
+        <span>evidence cited against <span style="color:var(--muted)">main</span></span>
+      </div>
+
+      <div class="legend" aria-label="Drawing key">
+        <span class="li"><span class="g-mod"></span> module</span>
+        <span class="li"><span class="g-shallow"></span> shallow module</span>
+        <span class="li"><span class="g-seam"></span> seam</span>
+        <span class="li"><span class="g-leak">&rarr;</span> leakage</span>
+        <span class="li"><span class="g-deep"></span> deep module</span>
+      </div>
+    </header>
+
+    <!-- ================= INDEX ================= -->
+    <nav class="index" aria-label="Candidates">
+      <h2>The set — ranked</h2>
+      <ul class="idx-list">
+        <li><a href="#c1"><span class="idx-num">C1</span><span class="idx-title">Derive the indexes — don't author them <span class="num-note">· top recommendation</span></span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c2"><span class="idx-num">C2</span><span class="idx-title">Arm the ingest seam <span class="num-note">· cheapest quick win</span></span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c3"><span class="idx-num">C3</span><span class="idx-title">One routine runner behind twelve routines</span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c4"><span class="idx-num">C4</span><span class="idx-title">One ingest skill behind seven clones</span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c5"><span class="idx-num">C5</span><span class="idx-title">Give <span class="mono">governance/</span> a real module wall</span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c6"><span class="idx-num">C6</span><span class="idx-title">Make the manifest a projection</span><span class="badge b-strong">Strong</span></a></li>
+        <li><a href="#c7"><span class="idx-num">C7</span><span class="idx-title">One home per policy; the kernel routes</span><span class="badge b-worth">Worth exploring</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- ================= CARDS ================= -->
+    <section>
+
+      <!-- C1 -->
+      <article class="card" id="c1">
+        <div class="card-head">
+          <span class="ctag">C1</span>
+          <h3>Derive the indexes — don't author them</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">in-process</span>
+        </div>
+        <p class="files">knowledge/{cat}/_index.md · knowledge/_index.json · brain.json · .claude/skills/architectural/ingest-0*.md</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — one entry, four hand-edits</div>
+            <div class="dbody">
+              <div class="fan-wrap">
+                <div class="mod" style="flex-shrink:0">new<br>entry.md</div>
+                <div class="fan-list">
+                  <div class="fan-row leak"><span class="arrow leak">&rarr;</span> _index.md · roster</div>
+                  <div class="fan-row leak"><span class="arrow leak">&rarr;</span> _index.json · count</div>
+                  <div class="fan-row leak"><span class="arrow leak">&rarr;</span> _index.json · description</div>
+                  <div class="fan-row leak"><span class="arrow leak">&rarr;</span> brain.json · total</div>
+                </div>
+              </div>
+            </div>
+            <div class="dnote slabel">all four derivable from folder + frontmatter</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — one source, indexes computed</div>
+            <div class="dbody">
+              <div class="fan-wrap">
+                <div class="mod" style="flex-shrink:0">new<br>entry.md</div>
+                <div class="arrow">&rarr;</div>
+                <div class="mod deep" style="flex-shrink:0">brain-index<br>generator</div>
+                <div class="fan-list">
+                  <div class="fan-row gen">_index.md · generated</div>
+                  <div class="fan-row gen">_index.json · generated</div>
+                  <div class="fan-row gen">brain.json · generated</div>
+                </div>
+              </div>
+            </div>
+            <div class="dnote slabel">deletion test: the indexes evaporate</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>Roster, counts and descriptions are hand-authored across three interfaces plus <span class="mono">brain.json</span>, all mechanically derivable from the folder — so every index is a shallow module that drifts.</p>
+          <p><span class="slabel">Solution</span>One <span class="mono">brain-index</span> generator owns the derived state; the entry frontmatter becomes the single source and the indexes become projections.</p>
+        </div>
+
+        <ul class="wins">
+          <li>locality: one place owns the roster</li>
+          <li>"AUTOGEN" finally has a generator</li>
+          <li>leverage: N indexes, one computation</li>
+          <li>phantom/orphan lint becomes runnable</li>
+          <li>interface shrinks; folder is the source</li>
+          <li>delete 7 shallow descriptions</li>
+        </ul>
+
+        <div class="callout info"><span class="slabel">note</span> The health-checklist already specifies "phantom entries — <span class="mono">_index.json</span> rows whose path does not resolve," but <span class="mono">_index.json</span> has no per-entry rows. This deepening supplies the structure that check was written against.</div>
+      </article>
+
+      <!-- C2 -->
+      <article class="card" id="c2">
+        <div class="card-head">
+          <span class="ctag">C2</span>
+          <h3>Arm the ingest seam</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">in-process</span>
+        </div>
+        <p class="files">scripts/brain-write-gate.sh · .claude/hooks/compounding-check.sh · .claude/hooks/auto-commit.sh · .claude/settings.json</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — gate built, switch off</div>
+            <div class="dbody">
+              <div class="seamwrap">
+                <div class="side">_raw/<br>substrate</div>
+                <div class="seam-div"><span class="gate-chip off">gate · unwired</span></div>
+                <div class="side">canonical<br>identity/ governance/ knowledge/</div>
+                <div class="leak-strip">&rarr;&rarr;&rarr;</div>
+              </div>
+            </div>
+            <div class="dnote slabel">no PreToolUse hook · bypassPermissions · leaks freely</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — gate on the seam</div>
+            <div class="dbody">
+              <div class="seamwrap">
+                <div class="side">_raw/<br>substrate</div>
+                <div class="seam-div armed"><span class="gate-chip on">gate · armed</span></div>
+                <div class="side canon thick">canonical<br>identity/ governance/ knowledge/</div>
+              </div>
+            </div>
+            <div class="dnote slabel">one PreToolUse hook · one auto-commit implementation</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>The gate that makes "raw &rarr; skill &rarr; canonical" a real seam is fully built and fixture-tested, but wired into nothing; two auto-commit copies exist and the live one points at a placeholder path.</p>
+          <p><span class="slabel">Solution</span>Register <span class="mono">brain-write-gate.sh</span> as a <span class="mono">PreToolUse</span> hook so the seam is the test surface; wire or delete the dead enforcers; call <span class="mono">auto-commit.sh</span> instead of duplicating it.</p>
+        </div>
+
+        <ul class="wins">
+          <li>the interface becomes the test surface</li>
+          <li>one adapter, not two copies</li>
+          <li>the seam stops being a convention</li>
+          <li>deletes dead enforcement scripts</li>
+          <li>lowest effort — the depth exists</li>
+        </ul>
+
+        <div class="callout warn"><span class="slabel">tension</span> <span class="mono">CLAUDE.md</span> Don't #7 forbids "bypassing enforcement (hooks, skills)," yet <span class="mono">permissions.defaultMode</span> is <span class="mono">bypassPermissions</span> and no gate is wired — the doctrine asserts a seam the config leaves open.</div>
+      </article>
+
+      <!-- C3 -->
+      <article class="card" id="c3">
+        <div class="card-head">
+          <span class="ctag">C3</span>
+          <h3>One routine runner behind twelve routines</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">local-substitutable</span>
+        </div>
+        <p class="files">routines/*/*.sh (&times;12) · routines/_listener/listener.py · routines/*/config.json (absent)</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — harness copied &times;12</div>
+            <div class="dbody">
+              <div class="clone-grid">
+                <!-- 12 shallow clones: 5 harness bars + 1 unique -->
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+                <div class="minibox"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar uniq"></span></div>
+              </div>
+            </div>
+            <div class="dnote slabel"><span style="color:var(--line-strong)">&#9644;</span> harness (dup) · <span style="color:var(--accent)">&#9644;</span> prompt (unique)</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — one runner + data</div>
+            <div class="dbody">
+              <div class="runner-after">
+                <div class="mod deep" style="padding:1.3rem 0.75rem">routines/_lib/run.sh<br><span style="color:#9fb0d6;font-size:0.62rem;letter-spacing:0.08em">CONFIG + PROMPT &rarr; RUN</span></div>
+                <div class="chips">
+                  <span class="chip">digest</span><span class="chip">drift</span><span class="chip">meeting-prep</span><span class="chip">council</span><span class="chip">+8</span>
+                </div>
+              </div>
+            </div>
+            <div class="dnote slabel">each routine collapses to {config.json, prompt.md}</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>Twelve routines each re-implement repo-root resolution, <span class="mono">.env</span> sourcing, <span class="mono">jq</span> reads, the attribution preamble and the <span class="mono">claude -p</span> call — only the prompt differs, and the <span class="mono">config.json</span> they all require ships nowhere.</p>
+          <p><span class="slabel">Solution</span>Extract one deep <span class="mono">routines/_lib/run.sh</span> that takes config + prompt; each routine becomes data. Ship a config schema and one <span class="mono">config.example.json</span>.</p>
+        </div>
+
+        <ul class="wins">
+          <li>locality: harness bugs fixed once</li>
+          <li>leverage: one runner, twelve routines</li>
+          <li>the runner is testable in isolation</li>
+          <li>a schema replaces reverse-engineering</li>
+          <li>starter routines actually run</li>
+        </ul>
+      </article>
+
+      <!-- C4 -->
+      <article class="card" id="c4">
+        <div class="card-head">
+          <span class="ctag">C4</span>
+          <h3>One ingest skill behind seven clones</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">local-substitutable</span>
+        </div>
+        <p class="files">.claude/skills/architectural/ingest-01&hellip;07-*.md (~1,180 lines) · knowledge/{cat}/_template.md (&times;7)</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — process copied &times;7</div>
+            <div class="dbody">
+              <div style="width:100%;border:1px dashed var(--line-strong);border-radius:5px;padding:0.7rem;display:flex;flex-direction:column;gap:0.4rem">
+                <div class="slabel" style="margin-bottom:0.2rem">7 skills · ~1,180 lines · ~90% identical</div>
+                <div class="mod" style="text-align:left">ingest-01 &nbsp;<span style="color:var(--faint)">process &times;</span></div>
+                <div class="mod" style="text-align:left">ingest-02 &nbsp;<span style="color:var(--faint)">process &times;</span></div>
+                <div class="mod" style="text-align:left">ingest-&hellip; &nbsp;<span style="color:var(--faint)">process &times;</span></div>
+                <div class="mod" style="text-align:left">ingest-07 &nbsp;<span style="color:var(--faint)">process &times;</span></div>
+              </div>
+            </div>
+            <div class="dnote slabel">delta per file = category taxonomy (data)</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — one deep skill + data</div>
+            <div class="dbody">
+              <div style="display:flex;align-items:center;gap:0.9rem;width:100%;justify-content:center">
+                <div class="fan-list" style="flex:0 0 auto">
+                  <div class="chip">01 taxonomy</div><div class="chip">02 taxonomy</div><div class="chip">&hellip; taxonomy</div><div class="chip">07 taxonomy</div>
+                </div>
+                <div class="arrow">&rarr;</div>
+                <div class="mod deep" style="padding:1.2rem 0.9rem">ingest<br>1 deep module</div>
+              </div>
+            </div>
+            <div class="dnote slabel">schema owned once by knowledge-grounding.md</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>Seven ingest skills copy-paste the same ~140-line process; the only per-file delta is the category taxonomy — data, not logic.</p>
+          <p><span class="slabel">Solution</span>One category-parameterized ingest skill plus a per-category data block; one entry template with the schema owned once.</p>
+        </div>
+
+        <ul class="wins">
+          <li>seven adapters collapse to one module</li>
+          <li>process fixes land once</li>
+          <li>schema-drift surface disappears</li>
+          <li>taxonomy becomes readable data</li>
+          <li>delete ~1,000 duplicated lines</li>
+        </ul>
+
+        <div class="callout warn"><span class="slabel">already drifting</span> The 7 templates say <span class="mono">source:</span> while the enforced rule requires <span class="mono">source_url:</span>/<span class="mono">source_interviews:</span>, and disagree on whether <span class="mono">references:</span> holds slugs or paths — proof the clones have started to diverge.</div>
+      </article>
+
+      <!-- C5 -->
+      <article class="card" id="c5">
+        <div class="card-head">
+          <span class="ctag">C5</span>
+          <h3>Give <span class="mono">governance/</span> a real module wall</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">in-process</span>
+        </div>
+        <p class="files">governance/ · governance/methodology/ · governance/adversarial-sets/ · docs/architecture/glossary.md</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — one folder, three scopes</div>
+            <div class="dbody">
+              <div class="stack">
+                <div class="slabel mono" style="color:var(--muted)">governance/</div>
+                <div class="band b-accent">client <span class="k">Govern</span> — decisions.md · delegation.md</div>
+                <div class="band b-amber">UA <span class="k">doctrine</span> — methodology/* · operating-principles</div>
+                <div class="band b-red">universal <span class="k">mechanism</span> — adversarial-sets/</div>
+                <div class="homeless">Playbook rung — homeless, scattered here</div>
+              </div>
+            </div>
+            <div class="dnote slabel">folder name &ne; subsystem · reader can't trust the wall</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — folder wall = module wall</div>
+            <div class="dbody">
+              <div class="stack">
+                <div class="wall w-accent"><b>governance/</b> — client Govern only <span class="dim">(+ re-homed Playbook)</span></div>
+                <div class="wall w-amber"><b>doctrine/</b> — UA methodology, out of client scope</div>
+                <div class="wall w-red"><b>adversarial-sets/</b> — mechanism, excluded from context</div>
+              </div>
+            </div>
+            <div class="dnote slabel">the folder boundary carries the scope</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>The folder <span class="mono">governance/</span> impersonates the <em>Govern</em> subsystem while actually holding three scopes and the homeless Playbook rung, so the concept model leaks onto every reader.</p>
+          <p><span class="slabel">Solution</span>Split by scope so each folder boundary is a module wall — client <em>Govern</em> stays, UA doctrine moves out, mechanism stays excluded — and re-home the Playbook.</p>
+        </div>
+
+        <ul class="wins">
+          <li>folder name recovers its meaning</li>
+          <li>locality: scope readable from path</li>
+          <li>doctrine stops masquerading as canon</li>
+          <li>the Playbook rung gets a home</li>
+        </ul>
+
+        <div class="callout info"><span class="slabel">aligned</span> <span class="mono">docs/architecture/glossary.md</span> already flags Govern as "a spine, not a folder" and the Playbook as "scattered in <span class="mono">governance/</span> — re-home proposed." This executes a divergence the docs already named.</div>
+      </article>
+
+      <!-- C6 -->
+      <article class="card" id="c6">
+        <div class="card-head">
+          <span class="ctag">C6</span>
+          <h3>Make the manifest a projection, not a shadow tree</h3>
+          <span class="badge b-strong">Strong</span>
+          <span class="tag">in-process</span>
+        </div>
+        <p class="files">.template-manifest.json — labels (170) · policy.overwrite (143) · policy.merge_manual (23)</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — interface as wide as it hides</div>
+            <div class="dbody">
+              <div class="bars">
+                <div class="barcol"><div class="bar-v source" style="height:158px"></div><div class="slabel">labels<br>source</div></div>
+                <div class="barcol"><div class="bar-v policy-dup" style="height:150px"></div><div class="slabel">policy<br>hand-mirrored</div></div>
+              </div>
+            </div>
+            <div class="dnote slabel">166 / 170 paths double-stored · references ghost files</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — thin interface, deep source</div>
+            <div class="dbody">
+              <div class="bars">
+                <div class="barcol"><div class="bar-v source" style="height:158px"></div><div class="slabel">labels<br>source</div></div>
+                <div class="barcol"><div class="bar-v policy-gen" style="height:34px"></div><div class="slabel">policy<br>computed</div></div>
+              </div>
+            </div>
+            <div class="dnote slabel">policy derived at rebase time · one source of truth</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>The manifest holds a genuinely deep fact — each file's rebase scope — but also hand-stores a <span class="mono">policy</span> projection its own doc says is "never hand-edit," mirroring the whole file tree by hand and already naming ghost preserve-targets.</p>
+          <p><span class="slabel">Solution</span>Keep <span class="mono">labels</span> as the source; generate <span class="mono">policy</span> from them in <span class="mono">rebase.sh</span>; delete the hand-stored block so the manifest can't drift.</p>
+        </div>
+
+        <ul class="wins">
+          <li>interface shrinks; source stays deep</li>
+          <li>rename a file, nothing silently drifts</li>
+          <li>locality: scope lives in one place</li>
+          <li>ghost references become impossible</li>
+        </ul>
+      </article>
+
+      <!-- C7 -->
+      <article class="card" id="c7">
+        <div class="card-head">
+          <span class="ctag">C7</span>
+          <h3>One home per policy; the kernel routes</h3>
+          <span class="badge b-worth">Worth exploring</span>
+          <span class="tag">in-process</span>
+        </div>
+        <p class="files">CLAUDE.md · .claude/rules/output-quality.md · governance/brain-operating-principles.md · governance/delegation.md · governance/decisions.md</p>
+
+        <div class="dgm-grid">
+          <div class="dgm">
+            <div class="dcap slabel">Before — one concept, five authors</div>
+            <div class="dbody">
+              <div class="c7-before">
+                <div class="c7-inputs">
+                  <div class="mod" style="text-align:left">CLAUDE.md · 4 rules <span class="arrow">&rarr;</span></div>
+                  <div class="mod" style="text-align:left">delegation.md <span class="arrow">&rarr;</span></div>
+                  <div class="mod" style="text-align:left">response-medium.md <span class="arrow">&rarr;</span></div>
+                  <div class="mod" style="text-align:left">CONTRIBUTING.md <span class="arrow">&rarr;</span></div>
+                  <div class="mod" style="text-align:left">settings.json hook <span class="arrow">&rarr;</span></div>
+                </div>
+                <div class="c7-node">may I write<br>a file?</div>
+              </div>
+            </div>
+            <div class="dnote slabel">delegation.md even points back to "CLAUDE.md rule #3"</div>
+          </div>
+          <div class="dgm">
+            <div class="dcap slabel">After — one home, kernel points</div>
+            <div class="dbody">
+              <div class="c7-after">
+                <div class="mod">CLAUDE.md<br>routes only</div>
+                <div class="arrow" style="letter-spacing:0.1em">&#8674;</div>
+                <div class="mod deep" style="padding:1.1rem 0.9rem">write-policy<br>1 home</div>
+              </div>
+            </div>
+            <div class="dnote slabel">shallow pointer-rules fold into the canonical file</div>
+          </div>
+        </div>
+
+        <div class="cols">
+          <p><span class="slabel">Problem</span>Write-permission policy is authored in &ge;5 files, ownership/trust in 3, the voice filter across 5 (two missing); two rule files are shallow pointers, and the kernel authors pricing policy instead of routing to it.</p>
+          <p><span class="slabel">Solution</span>Give each policy one canonical home; the kernel routes and never authors; fold the shallow pointer-rules into the file they point at.</p>
+        </div>
+
+        <ul class="wins">
+          <li>locality: one place to read the rule</li>
+          <li>kernel routes, doesn't author policy</li>
+          <li>delete shallow pointer-rules</li>
+          <li>no more pointer-chains to CLAUDE.md</li>
+        </ul>
+
+        <div class="callout warn"><span class="slabel">concrete break</span> The health-checklist writes decisions to <span class="mono">governance/decision-log.md</span>, which doesn't exist — the real log is <span class="mono">governance/decisions.md §4</span>. A dangling name inside the duplication; fix it as a <b>Strong</b> sub-item.</div>
+      </article>
+
+    </section>
+
+    <!-- ================= TOP RECOMMENDATION ================= -->
+    <section class="toprec">
+      <div class="slabel">Top recommendation</div>
+      <h2>Start with <a href="#c1">C1 — derive the indexes</a>.</h2>
+      <p>It attacks the single most-repeated friction in the brain: derived state — rosters, counts, descriptions, the manifest's policy block — hand-authored across shallow interfaces that drift. One generator turns folder-plus-frontmatter into the source and the indexes into projections, which also supplies the structure the phantom/orphan health-checks were already written against. Its pattern generalizes to C6 and de-risks C4.</p>
+      <p class="quick">Cheapest high-impact move if you'd rather bank a quick win first: <a href="#c2">C2 — arm the ingest seam</a>. The deep module already exists and is fixture-tested; it just needs wiring, and it makes the kernel's <span class="mono">raw &rarr; skill &rarr; canonical</span> promise true.</p>
+    </section>
+
+    <footer>
+      Deep / shallow-module architecture review · 2026-07-08 · no interfaces proposed yet — each candidate is a deepening to grill before building. Tracked in <a href="https://github.com/universalagents-ai/ua-brain-template/issues/112">ua-brain-template#112</a> (issues #105–#111).
+    </footer>
+
+  </div>
+</div>
+
+<script>
+  (function () {
+    var root = document.documentElement;
+    root.classList.add("js-anim");
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var targets = document.querySelectorAll(".card, .toprec");
+    if (reduce || !("IntersectionObserver" in window)) {
+      targets.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    targets.forEach(function (el) { io.observe(el); });
+  })();
+</script>
+
+</body>
+</html>
